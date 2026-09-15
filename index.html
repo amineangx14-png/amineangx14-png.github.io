@@ -2,6 +2,9 @@
 <html lang="fr"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>SAV 3GCOM</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#111">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <style>
 body{font-family:system-ui,sans-serif;background:#f5f5f5;margin:0;padding:10px}
@@ -24,8 +27,7 @@ body{font-family:system-ui,sans-serif;background:#f5f5f5;margin:0;padding:10px}
 <button onclick="testPushNow()" style="width:100%;padding:18px;background:#111;color:#fff;border-radius:14px;margin-top:20px;font-weight:bold;font-size:18px">🔔 TEST PUSH NOW</button>
 <div style="text-align:center;margin-top:10px"><a href="#" onclick="loadJobs();return false;" style="color:#666">🔄 Refresh</a></div>
 <script>
-const EXEC_URL = "https://script.google.com/macros/s/AKfycby3B5fdlil_vHB09b7X-DMn6jrzJUI1gIo5zacN5M3qmvLsw0o5fGHeuSQKdvAuHeScGQ/exec";
-const ONESIGNAL_APP_ID = "ba944959-097a-43c3-83c6-245d23f232d3";
+const EXEC_URL = "https://script.google.com/macros/s/AKfycby3B5fdlil_vHB09b7X-DMn6jrzJUI1gIo5zacN5M3qmvLsw0o5fGHeuSQKdvAuHeScGQ/exec";const ONESIGNAL_APP_ID = "ba944959-097a-43c3-83c6-245d23f232d3";
 const params = new URLSearchParams(location.search);
 const TECH = (params.get('tech')||'nazih').toLowerCase();
 document.getElementById('techName').innerText = TECH;
@@ -33,22 +35,15 @@ document.getElementById('techName').innerText = TECH;
 window.OneSignalDeferred = window.OneSignalDeferred || [];
 OneSignalDeferred.push(async function(OneSignal){
   try{
-    await OneSignal.init({
-      appId: ONESIGNAL_APP_ID,
-      allowLocalhostAsSecureOrigin: true,
-      notifyButton: {enable:true},
-      serviceWorkerParam: { scope: "/sav/" },
-      serviceWorkerPath: "OneSignalSDKWorker.js"
-    });
-    // Check subscription status
+    await OneSignal.init({appId: ONESIGNAL_APP_ID, allowLocalhostAsSecureOrigin: true, notifyButton: {enable:true}});
     var checkSub = async () => {
       var id = OneSignal.User.PushSubscription.id || "no-id";
       var opted = OneSignal.User.PushSubscription.optedIn;
       var perm = OneSignal.Notifications.permission;
-      document.getElementById('debug').innerText = "Sub:"+id.substring(0,8)+" opted:"+opted+" perm:"+perm+" tag:"+TECH;
+      document.getElementById('debug').innerText = "Sub:"+id.substring(0,8)+" opted:"+opted+" perm:"+perm+" tag:"+TECH+" AppID:"+ONESIGNAL_APP_ID.substring(0,8);
       if(!opted || perm===false){
         document.getElementById('subBtn').style.display='block';
-        document.getElementById('debug').innerHTML += "<br><b style='color:red'>❌ Notifications bloquées - Cliquez ACTIVER</b>";
+        document.getElementById('debug').innerHTML += "<br><b style='color:red'>❌ Cliquez ACTIVER pour autoriser</b>";
       } else {
         await OneSignal.User.addTag("tech", TECH);
         document.getElementById('debug').innerText += " | Tag OK ✅";
@@ -69,7 +64,7 @@ async function forceSubscribe(){
       await OneSignal.Notifications.requestPermission();
       await OneSignal.User.PushSubscription.optIn();
       await OneSignal.User.addTag("tech", TECH);
-      alert("Notifications activées! Recharge la page");
+      alert("Notifications activées! Recharge");
       location.reload();
     }catch(e){alert("Erreur: "+e);}
   });
@@ -96,7 +91,7 @@ function showMotifs(id){var e=document.getElementById('motifs-'+id); e.style.dis
 function doUpdate(id,statut,motif){if(!confirm(statut+" "+motif+" ?")) return; document.getElementById('list').innerHTML="Enregistrement..."; var s=document.createElement('script'); s.src=EXEC_URL+"?action=updateJob&id="+encodeURIComponent(id)+"&statut="+encodeURIComponent(statut)+"&motif="+encodeURIComponent(motif)+"&callback=onUpdateDone&t="+Date.now(); document.body.appendChild(s);}
 function onUpdateDone(){setTimeout(loadJobs,1200);}
 function testPushNow(){document.getElementById('debug').innerText="Envoi push..."; var s=document.createElement('script'); s.src=EXEC_URL+"?action=pushTest&tech="+encodeURIComponent(TECH)+"&callback=onPushTest&t="+Date.now(); document.body.appendChild(s);}
-function onPushTest(r){var txt=JSON.stringify(r); document.getElementById('debug').innerText=txt.substring(0,400); alert(txt.substring(0,800));}
+function onPushTest(r){var txt=JSON.stringify(r); document.getElementById('debug').innerText=txt.substring(0,600); alert(txt.substring(0,1000));}
 loadJobs();
 setInterval(loadJobs,30000);
 </script>
