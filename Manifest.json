@@ -3,7 +3,7 @@
   "short_name": "SAV",
   "start_url": "./?tech=nazih",
   "scope": "./",
-  "display": "standalone",
+  "display": "browser",
   "background_color": "#111111",
   "theme_color": "#111111",
   "icons": [
