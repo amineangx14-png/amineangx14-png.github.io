@@ -7,7 +7,7 @@
 <style>
 body{font-family:system-ui,sans-serif;background:#f5f5f5;margin:0;padding:10px}
 #header{background:#111;color:#fff;padding:16px;border-radius:14px;text-align:center;margin-bottom:12px;font-weight:bold;font-size:20px}
-.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:0 2px 8px #0001}
+.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:0 2px 8px #0001;position:relative;overflow:hidden}
 .big{font-size:20px;font-weight:900}
 .btn{width:48%;padding:16px 0;border-radius:12px;border:0;font-size:17px;font-weight:bold;margin-top:10px}
 .call{background:#e8f5e9;color:#2e7d32}.maps{background:#e3f2fd;color:#1565c0}
@@ -16,14 +16,21 @@ body{font-family:system-ui,sans-serif;background:#f5f5f5;margin:0;padding:10px}
 .motif{padding:18px;border-radius:12px;background:#fff3e0;border:2px solid #ffe0b2;text-align:center;font-weight:bold;font-size:16px}
 #debug{background:#fffbe6;padding:10px;border-radius:8px;font-size:12px;margin-bottom:10px;border:1px solid #ffe58f;word-break:break-all}
 #subBtn{background:#ff6f00;color:#fff;padding:14px;border-radius:12px;width:100%;border:0;font-weight:bold;display:none;margin-bottom:10px}
+/* PRIORITY STYLES */
+.card.urgent{border-left:6px solid #c62828;background:#fff5f5;box-shadow:0 3px 12px #c6282833}
+.card.urgent .big{color:#c62828}
+.badge-urgent{background:#c62828;color:#fff;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:900;position:absolute;top:10px;right:10px;animation:pulse 1.5s infinite}
+.badge-normal{background:#e0e0e0;color:#666;padding:4px 8px;border-radius:20px;font-size:11px;position:absolute;top:10px;right:10px}
+@keyframes pulse{0%{transform:scale(1)}50%{transform:scale(1.05)}100%{transform:scale(1)}}
+.prio-stripe{position:absolute;left:0;top:0;bottom:0;width:6px;background:#c62828}
 </style>
 </head><body>
-<div id="header">🔧 SAV - <span id="techName">...</span><br><small id="count"></small></div>
+<div id="header">🔧 SAV - <span id="techName">...</span><br><small id="count"></small><br><small id="prioCount" style="font-size:12px"></small></div>
 <div id="debug">Init OneSignal...</div>
 <button id="subBtn" onclick="forceSubscribe()">🔔 ACTIVER NOTIFICATIONS</button>
 <div id="list">Chargement jobs...</div>
 <button onclick="testPushNow()" style="width:100%;padding:18px;background:#111;color:#fff;border-radius:14px;margin-top:20px;font-weight:bold;font-size:18px">🔔 TEST PUSH NOW</button>
-<div style="text-align:center;margin-top:10px"><a href="#" onclick="loadJobs();return false;" style="color:#666">🔄 Refresh</a></div>
+<div style="text-align:center;margin-top:10px"><a href="#" onclick="loadJobs();return false;" style="color:#666">🔄 Refresh</a> | <a href="#" onclick="testReminder();return false;" style="color:#c62828">⏰ Test Rappel</a></div>
 <script>
 const EXEC_URL = "https://script.google.com/macros/s/AKfycby3B5fdlil_vHB09b7X-DMn6jrzJUI1gIo5zacN5M3qmvLsw0o5fGHeuSQKdvAuHeScGQ/exec";
 const ONESIGNAL_APP_ID = "ba944959-097a-43c3-83c6-245d23f232d3";
@@ -39,7 +46,7 @@ OneSignalDeferred.push(async function(OneSignal){
       var id = OneSignal.User.PushSubscription.id || "no-id";
       var opted = OneSignal.User.PushSubscription.optedIn;
       var perm = OneSignal.Notifications.permission;
-      document.getElementById('debug').innerText = "Sub:"+id.substring(0,8)+" opted:"+opted+" perm:"+perm+" tag:"+TECH+" AppID:"+ONESIGNAL_APP_ID.substring(0,8);
+      document.getElementById('debug').innerText = "Sub:"+id.substring(0,8)+" opted:"+opted+" perm:"+perm+" tag:"+TECH;
       if(!opted || perm===false){
         document.getElementById('subBtn').style.display='block';
         document.getElementById('debug').innerHTML += "<br><b style='color:red'>❌ Cliquez ACTIVER pour autoriser</b>";
@@ -70,12 +77,23 @@ async function forceSubscribe(){
 }
 
 function onJobs(jobs){
+  // Tri priorité: 1 en haut (rouge), 0 en bas
+  jobs.sort(function(a,b){ return (b.priority||0) - (a.priority||0); });
+  
+  var urgent = jobs.filter(j=>j.priority==1).length;
+  var normal = jobs.length - urgent;
   document.getElementById('count').innerText = jobs.length + " jobs à faire";
+  document.getElementById('prioCount').innerHTML = urgent>0 ? "🔴 <b style='color:#ff8a80'>"+urgent+" URGENT</b> | ⚪ "+normal+" normaux" : normal+" normaux";
+  
   let html="";
   jobs.forEach(j=>{
-    html+= `<div class="card"><div class="big">${j.id}</div><div>👤 ${j.client}</div><div>📍 ${j.adresse} ${j.tel? " - "+j.tel:""}</div><div style="display:flex;justify-content:space-between"><button class="btn call" onclick="window.open('tel:${j.tel}')">📞 APPELER</button><button class="btn maps" onclick="window.open('https://maps.google.com/?q='+encodeURIComponent(j.adresse))">🗺️ MAPS</button></div><button class="btn done" onclick="showMotifs('${j.id}')">✅ FAIT</button><button class="btn inj" onclick="doUpdate('${j.id}','Injoignable','')">❌ INJOIGNABLE</button><div id="motifs-${j.id}" style="display:none" class="grid"><div class="motif" onclick="doUpdate('${j.id}','Fait','PCO')">PCO</div><div class="motif" onclick="doUpdate('${j.id}','Fait','PTO')">PTO</div><div class="motif" onclick="doUpdate('${j.id}','Fait','Splitter')">Splitter</div><div class="motif" onclick="doUpdate('${j.id}','Fait','Cable')">Câble</div><div class="motif" onclick="doUpdate('${j.id}','Fait','Jartiere')">Jartière</div><div class="motif" onclick="doUpdate('${j.id}','Fait','Config')">Config</div></div></div>`;
+    var isUrgent = j.priority==1;
+    var cardClass = isUrgent ? "card urgent" : "card";
+    var badge = isUrgent ? '<div class="badge-urgent">🚩 URGENT P1</div><div class="prio-stripe"></div>' : '<div class="badge-normal">P0 normal</div>';
+    var flagIcon = isUrgent ? "🔴 " : "";
+    html+= `<div class="${cardClass}">${badge}<div class="big">${flagIcon}${j.id}</div><div>👤 ${j.client}</div><div>📍 ${j.adresse} ${j.tel? " - "+j.tel:""}</div><div style="display:flex;justify-content:space-between"><button class="btn call" onclick="window.open('tel:${j.tel}')">📞 APPELER</button><button class="btn maps" onclick="window.open('https://maps.google.com/?q='+encodeURIComponent(j.adresse))">🗺️ MAPS</button></div><button class="btn done" onclick="showMotifs('${j.id}')">✅ FAIT</button><button class="btn inj" onclick="doUpdate('${j.id}','Injoignable','')">❌ INJOIGNABLE</button><div id="motifs-${j.id}" style="display:none" class="grid"><div class="motif" onclick="doUpdate('${j.id}','Fait','PCO')">PCO</div><div class="motif" onclick="doUpdate('${j.id}','Fait','PTO')">PTO</div><div class="motif" onclick="doUpdate('${j.id}','Fait','Splitter')">Splitter</div><div class="motif" onclick="doUpdate('${j.id}','Fait','Cable')">Câble</div><div class="motif" onclick="doUpdate('${j.id}','Fait','Jartiere')">Jartière</div><div class="motif" onclick="doUpdate('${j.id}','Fait','Config')">Config</div></div></div>`;
   });
-  if(jobs.length==0) html="<div class='card'>Aucun job ✅</div>";
+  if(jobs.length==0) html="<div class='card'>Aucun job ✅ - Bonne journée</div>";
   document.getElementById('list').innerHTML=html;
 }
 
@@ -91,6 +109,7 @@ function doUpdate(id,statut,motif){if(!confirm(statut+" "+motif+" ?")) return; d
 function onUpdateDone(){setTimeout(loadJobs,1200);}
 function testPushNow(){document.getElementById('debug').innerText="Envoi push..."; var s=document.createElement('script'); s.src=EXEC_URL+"?action=pushTest&tech="+encodeURIComponent(TECH)+"&callback=onPushTest&t="+Date.now(); document.body.appendChild(s);}
 function onPushTest(r){var txt=JSON.stringify(r); document.getElementById('debug').innerText=txt.substring(0,600); alert(txt.substring(0,1000));}
+function testReminder(){document.getElementById('debug').innerText="Test rappel 2h..."; var s=document.createElement('script'); s.src=EXEC_URL+"?action=remindNow&tech="+encodeURIComponent(TECH)+"&callback=onPushTest&t="+Date.now(); document.body.appendChild(s);}
 loadJobs();
 setInterval(loadJobs,30000);
 </script>
