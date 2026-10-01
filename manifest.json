@@ -1,21 +1,16 @@
 {
+  "id": "sav-3gcom",
   "name": "SAV 3GCOM",
   "short_name": "SAV",
-  "start_url": "./?tech=nazih",
+  "description": "Suivi des interventions SAV",
+  "start_url": "./",
   "scope": "./",
-  "display": "browser",
+  "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#111111",
   "theme_color": "#111111",
+  "lang": "fr",
   "icons": [
-    {
-      "src": "https://cdn-icons-png.flaticon.com/512/1087/1087815.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "https://cdn-icons-png.flaticon.com/512/1087/1087815.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }
