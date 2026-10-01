@@ -33,11 +33,16 @@ body{font-family:system-ui,sans-serif;background:#f5f5f5;margin:0;padding:10px;p
 .small{color:#888;font-size:13px}
 #toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:12px 22px;border-radius:24px;font-size:14px;z-index:99;opacity:0;pointer-events:none;transition:opacity .3s;max-width:90%;text-align:center}
 #toast.show{opacity:1}
-#confirmBar{position:fixed;bottom:0;left:0;right:0;background:#2e7d32;color:#fff;padding:14px 16px;box-shadow:0 -4px 16px #0003;z-index:100;display:none;align-items:center;gap:10px}
-#confirmBar.show{display:flex}
-#confirmBar .txt{flex:1;font-weight:bold;font-size:15px}
-#confirmBar button{background:#fff;color:#2e7d32;border:0;border-radius:10px;padding:14px 18px;font-weight:900;font-size:16px;cursor:pointer}
-#confirmBar .cancel{background:#00000033;color:#fff}
+#flash{position:fixed;inset:0;background:#2e7d32;color:#fff;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:999;text-align:center;padding:20px}
+#flash.show{display:flex}
+#flashIcon{font-size:70px}
+#flashT1{font-size:30px;font-weight:900;margin-top:10px}
+#flashT2{font-size:20px;font-weight:bold;margin-top:6px}
+#flashT3{font-size:16px;opacity:.8;margin-top:4px}
+#flashBtns{margin-top:28px;display:flex;gap:12px}
+#flashBtns button{border:0;border-radius:12px;padding:14px 22px;font-weight:900;font-size:16px;cursor:pointer}
+#flashOk{background:#fff;color:#2e7d32}
+#flashUndo{background:#ffffff33;color:#fff}
 </style>
 </head><body>
 <div id="header">🔧 SAV - <span id="techName">...</span><br><small id="count"></small><br><small id="prioCount" style="font-size:12px"></small></div>
@@ -48,7 +53,16 @@ body{font-family:system-ui,sans-serif;background:#f5f5f5;margin:0;padding:10px;p
 <button onclick="testPushNow()" style="width:100%;padding:18px;background:#111;color:#fff;border-radius:14px;margin-top:20px;font-weight:bold;font-size:18px;cursor:pointer">🔔 TEST PUSH NOW</button>
 <div style="text-align:center;margin-top:10px"><a href="#" onclick="loadJobs();return false;" style="color:#666">🔄 Refresh</a> | <a href="#" onclick="testReminder();return false;" style="color:#c62828">⏰ Test Rappel</a></div>
 <div id="toast"></div>
-<div id="confirmBar"><div class="txt" id="confirmTxt"></div><button onclick="confirmMotifGo()">CONFIRMER</button><button class="cancel" onclick="hideConfirm()">✖</button></div>
+<div id="flash">
+  <div id="flashIcon">⏳</div>
+  <div id="flashT1"></div>
+  <div id="flashT2"></div>
+  <div id="flashT3"></div>
+  <div id="flashBtns" style="display:none">
+    <button id="flashOk" onclick="flashDone()">OK</button>
+    <button id="flashUndo" onclick="flashUndoGo()">↩️ ANNULER</button>
+  </div>
+</div>
 <script>
 const EXEC_URL = "https://script.google.com/macros/s/AKfycby3B5fdlil_vHB09b7X-DMn6jrzJUI1gIo5zacN5M3qmvLsw0o5fGHeuSQKdvAuHeScGQ/exec";
 const ONESIGNAL_APP_ID = "ba944959-097a-43c3-83c6-245d23f232d3";
@@ -59,6 +73,9 @@ localStorage.setItem('savTech', TECH);
 const FOCUS_JOB = params.get('job') || '';
 const FOCUS_MOTIF = params.get('motif') || '';
 document.getElementById('techName').innerText = TECH;
+
+// Venu d'un bouton de notification → écran vert immédiat
+if(FOCUS_JOB && FOCUS_MOTIF) showFlash('⏳', FOCUS_MOTIF, FOCUS_JOB, '', '');
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./OneSignalSDKWorker.js').catch(() => {}));
@@ -140,6 +157,40 @@ function telCleanOf(t){
   return t;
 }
 
+/* ---------- AUTO-CLOSE (bouton notification: 0 tap) ---------- */
+var undoTimer = null, flashJobId = null;
+
+function showFlash(icon, t1, t2, t3, btns){
+  document.getElementById('flashIcon').innerText = icon;
+  document.getElementById('flashT1').innerHTML = t1 || '';
+  document.getElementById('flashT2').innerHTML = t2 || '';
+  document.getElementById('flashT3').innerHTML = t3 || '';
+  document.getElementById('flashBtns').style.display = btns ? 'flex' : 'none';
+  document.getElementById('flash').classList.add('show');
+}
+function flashDone(){
+  clearTimeout(undoTimer);
+  location.replace('?tech=' + TECH);
+}
+function flashUndoGo(){
+  clearTimeout(undoTimer);
+  showFlash('↩️', 'ANNULATION...', flashJobId, '', '');
+  jsonp('updateJob', {id: flashJobId, statut: 'A faire', motif: ''}, function(){ flashDone(); });
+}
+function autoClose(id, motif){
+  flashJobId = id;
+  showFlash('⏳', 'ENREGISTREMENT...', motif, id, '');
+  jsonp('updateJob', {id: id, statut: 'Fait', motif: motif}, function(r){
+    if(r && r.error){
+      showFlash('⚠️', 'ERREUR', r.error, '');
+      setTimeout(function(){ location.replace('?tech=' + TECH); }, 2500);
+      return;
+    }
+    showFlash('✅', 'FAIT', motif, id, 'flex');
+    undoTimer = setTimeout(flashDone, 5000); // auto-retour après 5s, ANNULER dispo
+  });
+}
+
 /* ---------- Jobs list ---------- */
 function onJobs(jobs){
   if(!Array.isArray(jobs)){
@@ -175,21 +226,24 @@ function onJobs(jobs){
   if(!jobs.length) html = "<div class='card'>Aucun job ✅ — Bonne journée!</div>";
   document.getElementById('list').innerHTML = html;
 
-  if(FOCUS_JOB){
+  // Tap sur le CORPS de la notification (sans motif) → scroll + grille ouverte
+  if(FOCUS_JOB && !FOCUS_MOTIF){
     var el = document.getElementById('card-'+FOCUS_JOB);
     if(el){
       el.scrollIntoView({behavior:'smooth', block:'center'});
       el.classList.add('flash');
-      if(!FOCUS_MOTIF){
-        var mg = document.getElementById('motifs-'+FOCUS_JOB);
-        if(mg) mg.style.display = 'grid';
-      }
+      var mg = document.getElementById('motifs-'+FOCUS_JOB);
+      if(mg) mg.style.display = 'grid';
     }
   }
+  // Tap sur un BOUTON (avec motif) → auto-close immédiat
   if(FOCUS_JOB && FOCUS_MOTIF){
     var found = jobs.some(j => String(j.id).trim() == FOCUS_JOB);
-    if(found) showConfirm(FOCUS_JOB, FOCUS_MOTIF);
-    else toast('ℹ️ '+FOCUS_JOB+' introuvable ou déjà clos');
+    if(found) autoClose(FOCUS_JOB, FOCUS_MOTIF);
+    else {
+      showFlash('ℹ️', 'DÉJÀ TRAITÉ', FOCUS_JOB, '');
+      setTimeout(function(){ location.replace('?tech=' + TECH); }, 2000);
+    }
   }
 }
 
@@ -211,17 +265,6 @@ function doUpdate(id, statut, motif){
   });
 }
 
-function showConfirm(id, motif){
-  document.getElementById('confirmTxt').innerText = '✅ ' + motif + ' sur ' + id + ' ?';
-  document.getElementById('confirmBar').classList.add('show');
-}
-function hideConfirm(){ document.getElementById('confirmBar').classList.remove('show'); }
-function confirmMotifGo(){
-  hideConfirm();
-  doUpdate(FOCUS_JOB, 'Fait', FOCUS_MOTIF);
-  try{ history.replaceState(null,'', location.pathname + '?tech=' + TECH); }catch(e){}
-}
-
 function testPushNow(){
   document.getElementById('debug').innerText = "Envoi push...";
   jsonp('pushTest', {tech: TECH}, function(r){
@@ -233,8 +276,7 @@ function testPushNow(){
 function testReminder(){
   document.getElementById('debug').innerText = "Test rappel...";
   jsonp('remindNow', {tech: TECH}, function(r){
-    var txt = JSON.stringify(r);
-    document.getElementById('debug').innerText = txt.substring(0, 600);
+    document.getElementById('debug').innerText = JSON.stringify(r).substring(0, 600);
     toast('⏰ Rappel envoyé à ' + TECH);
   });
 }
